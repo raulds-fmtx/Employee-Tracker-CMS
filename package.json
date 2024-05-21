@@ -1,0 +1,23 @@
+{
+  "name": "employee-tracker-cms",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raulds-fmtx/Employee-Tracker-CMS.git"
+  },
+  "author": "Raul Santos",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/raulds-fmtx/Employee-Tracker-CMS/issues"
+  },
+  "homepage": "https://github.com/raulds-fmtx/Employee-Tracker-CMS#readme",
+  "dependencies": {
+    "inquirer": "^8.2.4",
+    "pg": "^8.11.3"
+  }
+}
