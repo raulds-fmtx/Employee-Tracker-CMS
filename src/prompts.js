@@ -1,5 +1,7 @@
 const inquirer = require("inquirer");
 
+// ENFORCE NON-NULL ANSWERS AND ANSWER TYPES
+
 class prompts { 
   static mainMenu() {
     return inquirer.prompt([

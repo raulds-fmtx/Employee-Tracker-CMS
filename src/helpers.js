@@ -1,88 +1,165 @@
-const db = require("../db/queries");
+const prompt = require("./prompts");
+const queries = require("./queries");
+
+// ENABLE DELETION BY ELIMINATING DEPENDENCIES (DEPARTMENTS->ROLES->EMPLOYEES & MANAGER->EMPLOYEE)
 
 class helpers {
-    static async getDepartments() {
-        const res = await db.query("SELECT id, name FROM departments");
-        return res.rows;
-    }
-    static async getRoles() {
-        const res = await db.query(
-            "SELECT roles.id, roles.title, roles.salary, departments.name as department FROM roles JOIN departments ON roles.department_id = departments.id"
-        );
-        return res.rows;
-    }
-    static async getEmployees() {
-        const res =
-            await db.query(`SELECT employees.id, employees.first_name, employees.last_name, roles.title, departments.name as department, roles.salary, 
-                                        (SELECT CONCAT(manager.first_name, ' ', manager.last_name) FROM employees manager WHERE manager.id = employees.manager_id) as manager 
-                                        FROM employees 
-                                        JOIN roles ON employees.role_id = roles.id 
-                                        JOIN departments ON roles.department_id = departments.id`);
-        return res.rows;
-    }
-    static async addDepartment(name) {
-        await db.query("INSERT INTO departments (name) VALUES ($1)", [name]);
-    }
-    static async addRole(title, salary, department_id) {
-        await db.query(
-            "INSERT INTO roles (title, salary, department_id) VALUES ($1, $2, $3)",
-            [title, salary, department_id]
-        );
-    }
-    static async addEmployee(first_name, last_name, role_id, manager_id) {
-        await db.query(
-            "INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)",
-            [first_name, last_name, role_id, manager_id]
-        );
-    }
-    static async updateEmployeeRole(employee_id, role_id) {
-        await db.query("UPDATE employees SET role_id = $1 WHERE id = $2", [
-            role_id,
-            employee_id,
-        ]);
-    }
-    // Bonus queries
-    static async updateEmployeeManager(employee_id, manager_id) {
-        await db.query("UPDATE employees SET manager_id = $1 WHERE id = $2", [
-            manager_id,
-            employee_id,
-        ]);
-    };
-    static async viewEmployeesByManager(manager_id) {
-        const res = await db.query(
-            `SELECT * FROM employees WHERE manager_id = $1`,
-            [manager_id]
-        );
-        return res.rows;
-    }
-    static async viewEmployeesByDepartment(department_id){
-        const res = await db.query(
-            `SELECT employees.* FROM employees 
-                                            JOIN roles ON employees.role_id = roles.id 
-                                            WHERE roles.department_id = $1`,
-            [department_id]
-        );
-        return res.rows;
-    }
-    static async deleteDepartment(department_id){
-        await db.query("DELETE FROM departments WHERE id = $1", [department_id]);
-    }
-    static async deleteRole(role_id){
-        await db.query("DELETE FROM roles WHERE id = $1", [role_id]);
-    }
-    static async deleteEmployee(employee_id){
-        await db.query("DELETE FROM employees WHERE id = $1", [employee_id]);
-    }
-    static async viewTotalUtilizedBudget(department_id){
-        const res = await db.query(
-            `SELECT SUM(roles.salary) AS total_budget 
-                                            FROM employees 
-                                            JOIN roles ON employees.role_id = roles.id 
-                                            WHERE roles.department_id = $1`,
-            [department_id]
-        );
-        return res.rows[0];
-    }
+  static mainMenu() {
+    return prompt.mainMenu();
+  }
+  static async viewDepartments() {
+    console.table(await queries.getDepartments());
+  }
+  static async viewRoles() {
+    console.table(await queries.getRoles());
+  }
+  static async viewEmployees() {
+    console.table(await queries.getEmployees());
+  }
+  static async addDepartment() {
+    const { name } = await prompt.departmentPrompt();
+    await queries.addDepartment(name);
+    console.log(`Added department: ${name}`);
+  }
+  static async addRole() {
+    const departments = await queries.getDepartments();
+    const { title, salary, department_id } = await prompt.rolePrompt(
+      departments.map((dept) => ({ name: dept.name, value: dept.id }))
+    );
+    await queries.addRole(title, salary, department_id);
+    console.log(`Added role: ${title}`);
+  }
+  static async addEmployee() {
+    const roles = await queries.getRoles();
+    const employees = await queries.getEmployees();
+    const { first_name, last_name, role_id, manager_id } =
+      await prompt.employeePrompt(
+        roles.map((role) => ({ name: role.title, value: role.id })),
+        employees.map((emp) => ({
+          name: `${emp.first_name} ${emp.last_name}`,
+          value: emp.id,
+        }))
+      );
+    await queries.addEmployee(first_name, last_name, role_id, manager_id);
+    console.log(`Added employee: ${first_name} ${last_name}`);
+  }
+  static async updateEmployeeRole() {
+    const allEmployees = await queries.getEmployees();
+    const allRoles = await queries.getRoles();
+    const { employee_id, role_id: newRoleId } =
+      await prompt.updateEmployeeRolePrompt(
+        allEmployees.map((emp) => ({
+          name: `${emp.first_name} ${emp.last_name}`,
+          value: emp.id,
+        })),
+        allRoles.map((role) => ({ name: role.title, value: role.id }))
+      );
+    await queries.updateEmployeeRole(employee_id, newRoleId);
+    console.log(`Updated employee's role`);
+  }
+  static async updateManager() {
+    const employeesForManagerUpdate = await queries.getEmployees();
+    const { employee_id: empId, manager_id: mgrId } =
+      await prompt.updateEmployeeManagerPrompt(
+        employeesForManagerUpdate.map((emp) => ({
+          name: `${emp.first_name} ${emp.last_name}`,
+          value: emp.id,
+        })),
+        employeesForManagerUpdate.map((emp) => ({
+          name: `${emp.first_name} ${emp.last_name}`,
+          value: emp.id,
+        }))
+      );
+    await queries.updateEmployeeManager(empId, mgrId);
+    console.log(`Updated employee's manager`);
+  }
+  static async viewEmployeesByManager() {
+    const managers = await queries.getEmployees();
+    const { manager_id: viewMgrId } = await prompt.viewEmployeesByManagerPrompt(
+      managers.map((mgr) => ({
+        name: `${mgr.first_name} ${mgr.last_name}`,
+        value: mgr.id,
+      }))
+    );
+    console.table(await queries.viewEmployeesByManager(viewMgrId));
+  }
+  static async viewEmployeesByDepartment() {
+    const departmentsForView = await queries.getDepartments();
+    const { department_id: viewDeptId } =
+      await prompt.viewEmployeesByDepartmentPrompt(
+        departmentsForView.map((dept) => ({
+          name: dept.name,
+          value: dept.id,
+        }))
+      );
+    console.table(await queries.viewEmployeesByDepartment(viewDeptId));
+  }
+  static async deleteDepartment() {
+    const departmentsForDelete = await queries.getDepartments();
+    const { department_id: delDeptId } = await prompt.deleteDepartmentPrompt(
+      departmentsForDelete.map((dept) => ({
+        name: dept.name,
+        value: dept.id,
+      }))
+    );
+
+    const employeesForDelete = await queries.viewEmployeesByDepartment(delDeptId);
+    employeesForDelete.forEach( async (delEmp) => {
+      const employeesSuboordinate = await queries.viewEmployeesByManager(delEmp.id);
+      employeesSuboordinate.forEach(
+        async (emp) => await queries.updateEmployeeManager(emp.id, null)
+      );
+      await queries.deleteEmployee(delEmp.id);
+    });
+
+    const rolesForDelete = await queries.viewRolesByDepartment(delDeptId);
+    rolesForDelete.forEach(async (delRole) => await queries.deleteRole(delRole.id));
+
+    await queries.deleteDepartment(delDeptId);
+    console.log(`Deleted department`);
+  }
+  static async deleteRole() {
+    const rolesForDelete = await queries.getRoles();
+    const { role_id: delRoleId } = await prompt.deleteRolePrompt(
+      rolesForDelete.map((role) => ({ name: role.title, value: role.id }))
+    );
+
+    const employeesForDelete = await queries.viewEmployeesByRole(delRoleId);
+    employeesForDelete.forEach( async (delEmp) => {
+      const employeesSuboordinate = await queries.viewEmployeesByManager(delEmp.id);
+      employeesSuboordinate.forEach( async (emp) => await queries.updateEmployeeManager(emp.id, null));
+      await queries.deleteEmployee(delEmp.id);
+    });
+
+    await queries.deleteRole(delRoleId);
+    console.log(`Deleted role`);
+  }
+  static async deleteEmployee() {
+    const employeesForDelete = await queries.getEmployees();
+    const { employee_id: delEmpId } = await prompt.deleteEmployeePrompt(
+      employeesForDelete.map((emp) => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        value: emp.id,
+      }))
+    );
+
+    const employeesSuboordinate = await queries.viewEmployeesByManager(delEmpId);
+    employeesSuboordinate.forEach(async (emp) => await queries.updateEmployeeManager(emp.id, null));
+
+    await queries.deleteEmployee(delEmpId);
+    console.log(`Deleted employee`);
+  }
+  static async viewTotalDepartmentBudget() {
+    const departmentsForBudget = await queries.getDepartments();
+    const { department_id: budgetDeptId } =
+      await prompt.viewTotalUtilizedBudgetPrompt(
+        departmentsForBudget.map((dept) => ({
+          name: dept.name,
+          value: dept.id,
+        }))
+      );
+    console.table(await queries.viewTotalUtilizedBudget(budgetDeptId));
+  }
 };
 
 module.exports = helpers;

@@ -22,5 +22,3 @@ CREATE TABLE employees (
     role_id INTEGER REFERENCES roles(id),
     manager_id INTEGER REFERENCES employees(id)
 );
-
-\i ./db/seed.sql
