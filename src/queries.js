@@ -1,5 +1,6 @@
 const db = require("../db/query");
 
+// A collection of functions that query the connected db in query.js
 class queries {
     static async getDepartments() {
         const res = await db.query("SELECT id, name FROM departments");
@@ -83,7 +84,7 @@ class queries {
         );
         return res.rows[0];
     }
-    // Helper queries
+    // Helper queries for deletion
     static async viewRolesByDepartment(department_id) {
         const res = await db.query(
           `SELECT * FROM roles WHERE department_id = $1`,
